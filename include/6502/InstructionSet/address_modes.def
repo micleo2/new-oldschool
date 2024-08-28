@@ -1,0 +1,47 @@
+#ifndef MODE
+#define MODE(name)
+#endif
+
+/// Invalid
+MODE(INVALID)
+
+/// Accumulator
+MODE(A)
+
+/// Relative
+MODE(REL)
+
+/// Immediate
+MODE(IMM)
+
+/// Implied
+MODE(IMP)
+
+/// Zero page
+MODE(ZPG)
+
+/// Zero page + Xreg
+MODE(ZP_X)
+
+/// Zero page + Yreg
+MODE(ZP_Y)
+
+/// Absolute
+MODE(ABS)
+
+/// Absolute + Xreg
+MODE(ABS_X)
+
+/// Absolute + Yreg
+MODE(ABS_Y)
+
+/// Indirect
+MODE(IND)
+
+/// *(Xreg + input) aka (Zero-Page,X)
+MODE(X_IND)
+
+/// *(input) + Yreg aka (Zero-Page),Y
+MODE(IND_Y)
+
+#undef MODE

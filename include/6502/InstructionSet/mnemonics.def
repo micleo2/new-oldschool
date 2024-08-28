@@ -1,0 +1,87 @@
+#ifndef MON
+#define MON(name)
+#endif
+
+MON(INVALID)
+
+// Transfer Instructions: load, store, interregister transfer.
+MON(LDA) // load accumulator
+MON(LDX) // load X
+MON(LDY) // load Y
+MON(STA) // store accumulator
+MON(STX) // store X
+MON(STY) // store Y
+MON(TAX) // transfer accumulator to X
+MON(TAY) // transfer accumulator to Y
+MON(TSX) // transfer stack pointer to X
+MON(TXA) // transfer X to accumulator
+MON(TXS) // transfer X to stack pointer
+MON(TYA) // transfer Y to accumulator
+
+// Stack instructions.
+MON(PHA) // push accumulator
+MON(PHP) // push processor status register (with break flag set)
+MON(PLA) // pull accumulator
+MON(PLP) // pull processor status register
+
+// Decrements & increments.
+MON(DEC) // decrement (memory)
+MON(DEX) // decrement X
+MON(DEY) // decrement Y
+MON(INC) // increment (memory)
+MON(INX) // increment X
+MON(INY) // increment Y
+
+// Arithmetics
+MON(ADC) // add with carry (prepare by CLC)
+MON(SBC) // subtract with carry (prepare by SEC)
+
+// Logical operations
+MON(AND) // and (with accumulator)
+MON(EOR) // exclusive or (with accumulator)
+MON(ORA) // (inclusive) or with accumulator
+
+// Shift & rotate.
+MON(ASL) // arithmetic shift left (shifts in a zero bit on the right)
+MON(LSR) // logical shift right (shifts in a zero bit on the left)
+MON(ROL) // rotate left (shifts in carry bit on the right)
+MON(ROR) // rotate right (shifts in zero bit on the left)
+
+// Flag instructions
+MON(CLC) // clear carry
+MON(CLD) // clear decimal (BCD arithmetics disabled)
+MON(CLI) // clear interrupt disable
+MON(CLV) // clear overflow
+MON(SEC) // set carry
+MON(SED) // set decimal (BCD arithmetics enabled)
+MON(SEI) // set interrupt disable
+
+// Comparisons
+MON(CMP) // compare (with accumulator)
+MON(CPX) // compare with X
+MON(CPY) // compare with Y
+
+// Conditional Branch Instructions
+MON(BCC) // branch on carry clear
+MON(BCS) // branch on carry set
+MON(BEQ) // branch on equal (zero set)
+MON(BMI) // branch on minus (negative set)
+MON(BNE) // branch on not equal (zero clear)
+MON(BPL) // branch on plus (negative clear)
+MON(BVC) // branch on overflow clear
+MON(BVS) // branch on overflow set
+
+// Jumps & subroutines
+MON(JMP) // jump
+MON(JSR) // jump subroutine
+MON(RTS) // return from subroutine
+
+// Interrupts
+MON(BRK) // break / software interrupt.
+MON(RTI) // return from interrupt.
+
+// Other
+MON(BIT) // bit test
+MON(NOP) // returns answer to life.
+
+#undef MON
