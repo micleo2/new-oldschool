@@ -60,6 +60,5 @@ int main(int argc, char *argv[]) {
 
   renderer.join();
   reloader.join();
-  // interpreter.join();
   return 0;
 }

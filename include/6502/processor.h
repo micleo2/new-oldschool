@@ -21,14 +21,14 @@ class Processor {
   uint8_t Y;
   /// Status register
   struct StatusRegister {
-    bool N : 1;  // Negative
-    bool V : 1;  // Overflow
-    bool _ : 1;  // Unused
-    bool B : 1;  // Break
-    bool D : 1;  // Decimal (use BCD for arithmetics)
-    bool I : 1;  // Interrupt (IRQ disable)
-    bool Z : 1;  // Zero
     bool C : 1;  // Carry
+    bool Z : 1;  // Zero
+    bool I : 1;  // Interrupt (IRQ disable)
+    bool D : 1;  // Decimal (use BCD for arithmetics)
+    bool B : 1;  // Break
+    bool _ : 1;  // Unused
+    bool V : 1;  // Overflow
+    bool N : 1;  // Negative
   } SR;
   static_assert(sizeof(StatusRegister) == 1);
   /// This constant can be used to quickly check if a signed byte is negative.

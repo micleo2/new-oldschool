@@ -1,5 +1,6 @@
 #include "6502/processor.h"
 
+#include <bitset>
 #include <cstring>
 #include <iostream>
 #include <ostream>
@@ -15,31 +16,22 @@ void Processor::check_for_interrupts() {
 }
 
 uint8_t Processor::run() {
-  // std::cout << "dumping code\n";
-  // word_t idx = BOOTLOADER_ADDR;
-  // while (true) {
-  //   uint8_t cur_byte = RAM[idx];
-  //   if (!cur_byte) break;
-  //   InstDesc idsc = decode_desc(cur_byte);
-  //   std::cout << idsc << "\n";
-  //   idx += idsc.sz;
-  // }
-
   // Reused in many memory operations.
   word_t effective_address = 0;
   // Same thing, but for zero page address modes.
   uint8_t zeffective_address = 0;
 
   // Used for random scratch storage space.
-  uint8_t scratch = 0;
   word_t scratch_word = 0;
+  uint8_t scratch = 0;
 
   while (true) {
     check_for_interrupts();
     uint8_t cur_byte = RAM[PC];
     InstDesc idsc = decode_desc(cur_byte);
     if (false) {
-      std::cout << "PC: 0x" << std::hex << PC << ", " << idsc << "\n";
+      std::cout << "PC: 0x" << std::hex << (PC - Regions::BOOTLOADER_ADDR)
+                << ", " << idsc << "\n";
     }
     switch ((Opcode)cur_byte) {
 #define BREAK_INC_PC \
@@ -141,7 +133,7 @@ uint8_t Processor::run() {
         SR.N = Y & SIGN_BIT;
         BREAK_INC_PC;
       case Opcode::LDY_ZP_X:
-        zeffective_address = read(PC + 1) + Y;
+        zeffective_address = read(PC + 1) + X;
         Y = read(zeffective_address);
         SR.Z = Y == 0;
         SR.N = Y & SIGN_BIT;
@@ -153,7 +145,7 @@ uint8_t Processor::run() {
         SR.N = Y & SIGN_BIT;
         BREAK_INC_PC;
       case Opcode::LDY_ABS_X:
-        effective_address = read_word(PC + 1) + Y;
+        effective_address = read_word(PC + 1) + X;
         Y = read(effective_address);
         SR.Z = Y == 0;
         SR.N = Y & SIGN_BIT;
@@ -224,68 +216,73 @@ uint8_t Processor::run() {
         SR.C = 0;
         BREAK_INC_PC;
 
+      // --- CLC
+      case Opcode::CLD_IMP:
+        SR.D = 0;
+        BREAK_INC_PC;
+
       // --- SEC
       case Opcode::SEC_IMP:
         SR.C = 1;
         BREAK_INC_PC;
 
-      // --- ADC
+        // --- ADC
+#define ADC(inp)                                            \
+  scratch = AC + inp + SR.C;                                \
+  SR.C = scratch < AC;                                      \
+  SR.Z = scratch == 0;                                      \
+  SR.N = scratch & SIGN_BIT;                                \
+  SR.V = (!((AC ^ inp) & 0x80) && ((AC ^ scratch) & 0x80)); \
+  AC = scratch;
       case Opcode::ADC_IMM: {
-        // result
         uint8_t operand = read(PC + 1);
-        scratch_word = AC + operand + SR.C;
-        SR.C = scratch_word > 0xFF;
-        scratch_word &= 0xFF;
-        SR.Z = scratch == 0;
-        SR.N = scratch & SIGN_BIT;
-        SR.V = ((AC & SIGN_BIT) == (operand & SIGN_BIT)) &
-               ((AC & SIGN_BIT) != (scratch & SIGN_BIT));
-        AC = scratch_word;
+        ADC(operand);
         BREAK_INC_PC;
       }
       case Opcode::ADC_ZPG: {
-        // result
         zeffective_address = read(PC + 1);
         uint8_t operand = read(zeffective_address);
-        scratch_word = AC + operand + SR.C;
-        SR.C = scratch_word > 0xFF;
-        scratch_word &= 0xFF;
-        SR.Z = scratch == 0;
-        SR.N = scratch & SIGN_BIT;
-        SR.V = ((AC & SIGN_BIT) == (operand & SIGN_BIT)) &
-               ((AC & SIGN_BIT) != (scratch & SIGN_BIT));
-        AC = scratch_word;
+        ADC(operand);
+        BREAK_INC_PC;
+      }
+      case Opcode::ADC_ABS: {
+        effective_address = read_word(PC + 1);
+        uint8_t operand = read(effective_address);
+        ADC(operand);
         BREAK_INC_PC;
       }
 
       // --- SBC
+#define SBC(inp)                             \
+  int16_t scratch = AC - inp - (!SR.C);      \
+  SR.C = scratch >= 0;                       \
+  scratch &= 0xFF;                           \
+  SR.Z = scratch == 0;                       \
+  SR.N = scratch & SIGN_BIT;                 \
+  SR.V = (AC ^ scratch) & (AC ^ inp) & 0x80; \
+  AC = scratch & 0xFF;
       case Opcode::SBC_IMM: {
-        // result
         uint8_t operand = read(PC + 1);
-        int16_t scratch_word = AC - operand - (!SR.C);
-        SR.C = scratch_word < 0;
-        scratch_word &= 0xFF;
-        SR.Z = scratch_word == 0;
-        SR.N = scratch_word & SIGN_BIT;
-        SR.V = ((AC & SIGN_BIT) == (operand & SIGN_BIT)) &
-               ((AC & SIGN_BIT) != (scratch_word & SIGN_BIT));
-        AC = scratch_word;
+        SBC(operand);
         BREAK_INC_PC;
       }
       case Opcode::SBC_ZPG: {
-        // result
         zeffective_address = read(PC + 1);
         uint8_t operand = read(zeffective_address);
-        int16_t scratch_word = AC - operand - (!SR.C);
-        SR.C = scratch_word < 0;
-        scratch_word &= 0xFF;
-        SR.Z = scratch_word == 0;
-        SR.N = scratch_word & SIGN_BIT;
-        SR.V = ((AC & SIGN_BIT) == (operand & SIGN_BIT)) &
-               ((AC & SIGN_BIT) != (scratch_word & SIGN_BIT));
-        AC = scratch_word;
+        SBC(operand);
         BREAK_INC_PC;
       }
+      case Opcode::SBC_ABS: {
+        effective_address = read_word(PC + 1);
+        uint8_t operand = read(effective_address);
+        SBC(operand);
+        BREAK_INC_PC;
+      }
+
+      case Opcode::INC_ABS:
+        effective_address = read_word(PC + 1);
+        write(effective_address, read(effective_address) + 1);
+        BREAK_INC_PC;
 
       // --- Increments
       case Opcode::INX_IMP:
@@ -396,39 +393,31 @@ uint8_t Processor::run() {
         write(zeffective_address, scratch);
         BREAK_INC_PC;
 
-      // --- CMP
+#define CMP(reg, inp)        \
+  scratch = reg - inp;       \
+  SR.N = scratch & SIGN_BIT; \
+  SR.Z = scratch == 0;       \
+  SR.C = reg >= inp;
+        // --- CMP
       case Opcode::CMP_IMM: {
-        int16_t signed_scratch = static_cast<word_t>(AC) - read(PC + 1);
-        SR.N = signed_scratch & SIGN_BIT;
-        SR.Z = (signed_scratch & 0xFF) == 0;
-        SR.C = signed_scratch < 0;
+        CMP(AC, read(PC + 1));
         BREAK_INC_PC;
       }
       case Opcode::CMP_ZPG: {
         zeffective_address = read(PC + 1);
-        int16_t signed_scratch =
-            static_cast<word_t>(AC) - read(zeffective_address);
-        SR.N = signed_scratch & SIGN_BIT;
-        SR.Z = (signed_scratch & 0xFF) == 0;
-        SR.C = signed_scratch < 0;
+        CMP(AC, read(zeffective_address));
         BREAK_INC_PC;
       }
 
       // --- CPX
       case Opcode::CPX_IMM: {
-        int16_t signed_scratch = static_cast<word_t>(X) - read(PC + 1);
-        SR.N = signed_scratch & SIGN_BIT;
-        SR.Z = (signed_scratch & 0xFF) == 0;
-        SR.C = signed_scratch < 0;
+        CMP(X, read(PC + 1));
         BREAK_INC_PC;
       }
 
       // --- CPY
       case Opcode::CPY_IMM: {
-        int16_t signed_scratch = static_cast<word_t>(Y) - read(PC + 1);
-        SR.N = signed_scratch & SIGN_BIT;
-        SR.Z = (signed_scratch & 0xFF) == 0;
-        SR.C = signed_scratch < 0;
+        CMP(Y, read(PC + 1));
         BREAK_INC_PC;
       }
 
@@ -453,6 +442,51 @@ uint8_t Processor::run() {
       // --- BCC
       case Opcode::BCC_REL:
         if (SR.C == 0) {
+          PC += (int8_t)read(PC + 1);
+          PC += 2;
+          break;
+        }
+        BREAK_INC_PC;
+
+      // --- BCS
+      case Opcode::BCS_REL:
+        if (SR.C == 1) {
+          PC += (int8_t)read(PC + 1);
+          PC += 2;
+          break;
+        }
+        BREAK_INC_PC;
+
+      // --- BVC
+      case Opcode::BVC_REL:
+        if (SR.V == 0) {
+          PC += (int8_t)read(PC + 1);
+          PC += 2;
+          break;
+        }
+        BREAK_INC_PC;
+
+      // --- BVS
+      case Opcode::BVS_REL:
+        if (SR.V == 1) {
+          PC += (int8_t)read(PC + 1);
+          PC += 2;
+          break;
+        }
+        BREAK_INC_PC;
+
+      // --- BMI
+      case Opcode::BMI_REL:
+        if (SR.N == 1) {
+          PC += (int8_t)read(PC + 1);
+          PC += 2;
+          break;
+        }
+        BREAK_INC_PC;
+
+      // --- BPL
+      case Opcode::BPL_REL:
+        if (SR.N == 0) {
           PC += (int8_t)read(PC + 1);
           PC += 2;
           break;
@@ -529,9 +563,14 @@ uint8_t Processor::run() {
         BREAK_INC_PC;
 
       // --- NOP
-      case Opcode::NOP_IMP:
-        std::cout << "NOP dumping AC=" << std::dec << (int)AC << "\n";
+      case Opcode::NOP_IMP: {
+        std::cout << "NOP:AC=" << std::dec << +(uint8_t)AC << "/" << +(int8_t)AC
+                  << "\n";
+        uint8_t &sr = *reinterpret_cast<uint8_t *>(&SR);
+        std::cout << "    SR=" << std::bitset<8>(sr) << std::endl;
+        std::cout << "       " << "NV_BDIZC" << std::endl;
         BREAK_INC_PC;
+      }
 
       default:
         std::cerr << "PC: 0x" << std::hex << PC << ", unhandled " << idsc
