@@ -29,6 +29,9 @@ class Processor {
     bool _ : 1;  // Unused
     bool V : 1;  // Overflow
     bool N : 1;  // Negative
+    operator uint8_t() const {
+      return *reinterpret_cast<const uint8_t *>(this);
+    }
   } SR;
   static_assert(sizeof(StatusRegister) == 1);
   /// This constant can be used to quickly check if a signed byte is negative.
@@ -44,7 +47,7 @@ class Processor {
   uint8_t *reset = nullptr;
 
  public:
-  Processor(std::vector<uint8_t> &mem) : RAM(mem) { init_registers(); };
+  Processor(std::vector<uint8_t> &mem) : RAM(mem) { reset_internal_state(); };
 
   /// Run code until completion. \return the final value of the accumulator
   /// register. Interruptible.
@@ -72,9 +75,21 @@ class Processor {
   /// Write a single byte to memory.
   inline void write(word_t addr, uint8_t data) { RAM[addr] = data; }
 
+  /// Push \p val to the stack. Decrements \c SP.
+  inline void push(uint8_t val) {
+    write(Regions::STACK.begin | SP, val);
+    --SP;
+  }
+  /// Pop and \return the top value from the stack. Increments \c SP.
+  inline uint8_t pop() {
+    auto ret = read(Regions::STACK.begin | SP + 1);
+    ++SP;
+    return ret;
+  }
+
   void check_for_interrupts();
 
-  void init_registers() {
+  void reset_internal_state() {
     PC = Regions::BOOTLOADER_ADDR;
     AC = 0;
     X = 0;
